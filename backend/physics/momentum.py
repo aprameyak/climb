@@ -23,7 +23,6 @@ class MomentumResult:
 class MomentumModel:
     """Physics-based model for dynamic climbing movements."""
 
-    # Standard gravity
     G = 9.81  # m/s²
 
     def compute_deadpoint(
@@ -51,7 +50,6 @@ class MomentumModel:
         Returns:
             MomentumResult with all computed physics.
         """
-        # Convert normalized coords to meters
         dx = (to_pos[0] - from_pos[0]) * wall_width_m
         dy = (from_pos[1] - to_pos[1]) * wall_height_m  # flip y (up = positive)
 
@@ -69,9 +67,8 @@ class MomentumModel:
                 limiting_factor="none",
             )
 
-        # Component of gravity along wall
         wall_rad = math.radians(wall_angle_deg)
-        g_along_wall = self.G * math.sin(wall_rad)  # opposing upward movement on overhang
+        g_along_wall = self.G * math.sin(wall_rad)
         g_effective = self.G * math.cos(math.radians(max(0, wall_angle_deg)))
 
         # For deadpoint: need to reach height dy with zero velocity at apex
@@ -93,22 +90,17 @@ class MomentumModel:
         time_to_apex = required_v / g_effective
         time_to_target_ms = time_to_apex * 1000
 
-        # Optimal launch angle: aim to arrive at apex at hold position
-        # For purely vertical: 90° (straight up)
         if abs(dx) < 0.01:
             launch_angle = 90.0
         else:
             launch_angle = math.degrees(math.atan2(dy, abs(dx)))
 
-        # Energy: KE = 0.5 × m × v²
         energy = 0.5 * body_mass_kg * required_v**2
 
-        # Success rate: depends on timing window and precision requirement
         # Larger holds = more forgiving, faster velocity = less time to adjust
-        timing_window_ms = max(50, 200 - required_v * 50)  # smaller window = harder
+        timing_window_ms = max(50, 200 - required_v * 50)
         success_rate = min(0.95, 0.4 + timing_window_ms / 300.0)
 
-        # Maximum feasible deadpoint velocity for average climber: ~4 m/s
         MAX_FEASIBLE_V = 4.5
         feasible = required_v <= MAX_FEASIBLE_V
 
@@ -136,12 +128,10 @@ class MomentumModel:
 
         This is more demanding than a deadpoint — the climber is fully airborne.
         """
-        # Full dyno requires more velocity since the climber must travel further
         deadpoint_result = self.compute_deadpoint(
             from_pos, to_pos, body_mass_kg, wall_angle_deg, wall_height_m, wall_width_m
         )
 
-        # Dyno is harder: needs ~20% more velocity, lower success rate
         return MomentumResult(
             peak_velocity_ms=deadpoint_result.peak_velocity_ms * 1.2,
             time_to_target_ms=deadpoint_result.time_to_target_ms * 1.1,
@@ -196,7 +186,6 @@ class MomentumModel:
 
         angle = math.degrees(math.atan2(abs(dy), abs(dx)))
 
-        # On steep overhang: reduce launch angle (more horizontal component needed)
         if wall_angle_deg > 20:
             angle *= 1.0 - (wall_angle_deg - 20) / 70.0 * 0.3
 

@@ -60,7 +60,6 @@ async def upload_and_analyze(
 
     analysis_id = f"analysis_{uuid.uuid4().hex[:8]}"
 
-    # --- Save uploaded files ---
     saved_paths: list[Path] = []
     for file in files:
         if file.content_type and not file.content_type.startswith(("image/", "video/")):
@@ -80,13 +79,11 @@ async def upload_and_analyze(
         path = store.save_image(content, file.filename or "image.jpg", analysis_id)
         saved_paths.append(path)
 
-    # --- Parse board type ---
     try:
         board = BoardType(board_type)
     except ValueError:
         board = BoardType.UNKNOWN
 
-    # --- Parse beta types ---
     beta_type_list: list[BetaType] = []
     for bt_str in beta_types.split(","):
         bt_str = bt_str.strip()
@@ -97,30 +94,25 @@ async def upload_and_analyze(
     if not beta_type_list:
         beta_type_list = [BetaType.HIGH_PERCENTAGE, BetaType.ENERGY_EFFICIENT]
 
-    # --- Run vision pipeline ---
     vision_pipeline = VisionPipeline(client)
     vision_result = await vision_pipeline.process_images(saved_paths, board)
 
-    # --- Load climber profile ---
     profile: ClimberProfile = ClimberProfile.default_profile()
     if climber_profile_id:
         loaded = store.load_profile(climber_profile_id)
         if loaded:
             profile = loaded
 
-    # --- Generate beta ---
     betas = []
     if vision_result.active_route:
         solver = BetaSolver(client)
         betas = await solver.solve(vision_result.active_route, profile, beta_type_list)
 
-    # --- Compute difficulty ---
     analytics = AnalyticsService()
     difficulty = None
     if vision_result.active_route:
         difficulty = analytics.compute_difficulty_analysis(vision_result.active_route, betas)
 
-    # --- Build result ---
     request = AnalysisRequest(
         image_paths=[str(p) for p in saved_paths],
         climber_profile_id=climber_profile_id,

@@ -83,7 +83,6 @@ class BalanceAnalyzer:
         if len(active) < 2:
             return False, 0.0
 
-        # Project everything to 2D (x, y wall plane)
         xs = [p[0] for p in active]
         ys = [p[1] for p in active]
         com_x, com_y = com[0], com[1]
@@ -97,7 +96,6 @@ class BalanceAnalyzer:
         in_x = (min_x - buffer) <= com_x <= (max_x + buffer)
         in_y = (min_y - buffer) <= com_y <= (max_y + buffer)
 
-        # Margin: distance from COM to nearest edge of support polygon
         if max_x > min_x:
             margin_x = min(com_x - (min_x - buffer), (max_x + buffer) - com_x) / (max_x - min_x + buffer)
         else:
@@ -133,19 +131,16 @@ class BalanceAnalyzer:
         if len(contact_points) < 2:
             return 0.8  # Only one contact — high risk
 
-        # Check for asymmetric foot placement
         foot_xs = [p[0] for p in contact_points[-2:]]  # last two = feet
         foot_span = abs(foot_xs[0] - foot_xs[1]) if len(foot_xs) >= 2 else 0
 
         if foot_span < 0.05:  # feet close together
             asymmetry = 0.7
         else:
-            # COM distance from foot midpoint (lateral)
             foot_mid_x = sum(foot_xs) / len(foot_xs)
             lateral_offset = abs(com[0] - foot_mid_x)
             asymmetry = min(1.0, lateral_offset / (foot_span + 0.01))
 
-        # Steepness amplifies barn door risk
         steepness_factor = max(0, wall_angle_deg) / 90.0
         risk = asymmetry * (0.3 + steepness_factor * 0.7)
 
@@ -164,7 +159,6 @@ class BalanceAnalyzer:
         """
         base_swing = 0.0
 
-        # Dynamic moves generate swing
         if move_type in (MoveType.FULL_DYNO, MoveType.CONTROLLED_DYNO):
             base_swing = 0.7
         elif move_type == MoveType.DEADPOINT:
@@ -172,7 +166,6 @@ class BalanceAnalyzer:
         elif move_type == MoveType.CUT_LOOSE:
             base_swing = 0.8
 
-        # Barn door risk increases swing
         barn_door = self.compute_barn_door_risk(contact_points, com, wall_angle_deg)
         swing = base_swing * 0.4 + barn_door * 0.6
 

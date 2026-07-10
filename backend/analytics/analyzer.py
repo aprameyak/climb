@@ -38,13 +38,8 @@ class AnalyticsService:
         if not holds:
             return self._default_difficulty()
 
-        # --- Grade estimate from hold types ---
         grade_v = self._estimate_grade(holds, route.wall_geometry.angle_degrees)
-
-        # --- Crux description ---
         crux_desc = self._describe_crux(betas, holds)
-
-        # --- Intensity metrics ---
         power_intensity = self._compute_power_intensity(holds, route.wall_geometry.angle_degrees)
         finger_intensity = self._compute_finger_intensity(holds)
         core_intensity = self._compute_core_intensity(betas, route.wall_geometry.angle_degrees)
@@ -53,7 +48,6 @@ class AnalyticsService:
         mobility_intensity = self._compute_mobility_intensity(betas)
         risk_level = self._compute_risk_level(betas, route.wall_geometry.angle_degrees)
 
-        # --- Send probabilities ---
         if betas:
             flash_prob = sum(b.expected_flash_probability for b in betas) / len(betas)
             send_prob = sum(b.expected_send_probability for b in betas) / len(betas)
@@ -82,7 +76,6 @@ class AnalyticsService:
         if not holds:
             return 4  # default unknown
 
-        # Grade contributions from hold types
         HOLD_GRADE_CONTRIBUTION: dict[HoldType, float] = {
             HoldType.JUG: 1.0,
             HoldType.POSITIVE_EDGE: 2.5,
@@ -111,7 +104,6 @@ class AnalyticsService:
             HoldType.UNKNOWN: 4.0,
         }
 
-        # Use hardest holds (top 30%) to estimate crux grade
         contributions = sorted(
             [HOLD_GRADE_CONTRIBUTION.get(h.hold_type, 4.0) for h in holds],
             reverse=True,
@@ -147,7 +139,6 @@ class AnalyticsService:
                 return f"Route crux likely involves the {hardest.hold_type.value} at position ({hardest.center.x:.2f}, {hardest.center.y:.2f})"
             return "Crux not identified"
 
-        # Summarize crux moves
         crux_types = set()
         for move in crux_moves[:3]:
             for mt in move.move_types:

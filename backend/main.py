@@ -17,7 +17,6 @@ from api.routes.health import router as health_router
 from api.routes.profiles import router as profiles_router
 from config import get_settings
 
-# ---- Logging Setup ----
 structlog.configure(
     processors=[
         structlog.stdlib.filter_by_level,
@@ -61,7 +60,6 @@ app = FastAPI(
 
 settings = get_settings()
 
-# ---- CORS ----
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -71,7 +69,6 @@ app.add_middleware(
 )
 
 
-# ---- Exception Handlers ----
 @app.exception_handler(ValidationError)
 async def validation_exception_handler(request: Request, exc: ValidationError) -> JSONResponse:
     logger.warning("Validation error", path=str(request.url), errors=exc.errors())
@@ -90,12 +87,10 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
     )
 
 
-# ---- Routers ----
 app.include_router(health_router)
 app.include_router(analysis_router)
 app.include_router(profiles_router)
 
-# ---- Static Files (uploaded images) ----
 uploads_path = settings.uploads_dir
 uploads_path.mkdir(parents=True, exist_ok=True)
 app.mount("/static/uploads", StaticFiles(directory=str(uploads_path)), name="uploads")

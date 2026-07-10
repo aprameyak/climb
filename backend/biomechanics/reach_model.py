@@ -15,9 +15,7 @@ class ReachableVolume:
 
     max_reach_cm: float
     comfortable_reach_cm: float
-    # Adjustment factor for wall angle (overhang reduces effective reach)
     overhang_adjustment: float = 1.0
-    # Direction-dependent reach factors
     direction_bias: dict[str, float] = field(
         default_factory=lambda: {"up": 1.0, "left": 0.9, "right": 0.9, "down": 0.7, "cross": 0.8}
     )
@@ -34,7 +32,6 @@ class ReachabilityResult:
 class ReachModel:
     """Models the reachable space for a given climber on a given wall."""
 
-    # Effective wall height for normalization (meters)
     WALL_HEIGHT_M = 4.0
     WALL_WIDTH_M = 3.0
 
@@ -46,21 +43,12 @@ class ReachModel:
         On steeper overhangs, the effective reach decreases because
         the climber's body hangs further from the wall, reducing leverage.
         """
-        # Base reach: arm length from shoulder
         base_reach_cm = profile.arm_length_cm
-
-        # Shoulder mobility factor (1.0 at 180°, decreases proportionally)
         shoulder_factor = profile.shoulder_mobility_deg / 180.0
-
         max_reach = base_reach_cm * shoulder_factor
-
-        # Comfortable reach is ~85% of max
         comfortable_reach = max_reach * 0.85
-
-        # Overhang adjustment: every 10° of overhang reduces effective reach by ~5%
         overhang_factor = max(0.6, 1.0 - (max(0, wall_angle_deg) / 10.0) * 0.05)
 
-        # Direction biases
         direction_bias = {
             "up": 1.0,
             "left": 0.9 if profile.hand_dominance.value == "right" else 1.0,
@@ -104,10 +92,9 @@ class ReachModel:
         """
         reach_volume = self.compute_reach_volume(profile, wall_angle_deg)
 
-        # Convert normalized coords to cm (assuming wall_height_m × wall_width_m)
         # In wall coords: y=0 is top, y=1 is bottom
         hip_x_cm = hip_pos_normalized[0] * wall_width_m * 100
-        hip_y_cm = (1.0 - hip_pos_normalized[1]) * wall_height_m * 100  # flip y to physical up
+        hip_y_cm = (1.0 - hip_pos_normalized[1]) * wall_height_m * 100
 
         shoulder_height_cm = hip_y_cm + profile.torso_length_cm * 0.7
         shoulder_x_cm = hip_x_cm
@@ -115,12 +102,10 @@ class ReachModel:
         target_x_cm = target_hold.center.x * wall_width_m * 100
         target_y_cm = (1.0 - target_hold.center.y) * wall_height_m * 100
 
-        # Distance from shoulder to hold
         dx = target_x_cm - shoulder_x_cm
         dy = target_y_cm - shoulder_height_cm  # positive = above shoulder
         distance_cm = math.sqrt(dx**2 + dy**2)
 
-        # Check injury restrictions
         if profile.has_restriction("overhead") and dy > 20:
             return ReachabilityResult(
                 reachable=False,
@@ -129,7 +114,6 @@ class ReachModel:
                 margin_cm=-(distance_cm - reach_volume.comfortable_reach_cm),
             )
 
-        # Determine direction
         direction = "up" if dy > 10 else ("down" if dy < -20 else ("left" if dx < 0 else "right"))
         direction_factor = reach_volume.direction_bias.get(direction, 0.9)
         effective_reach = reach_volume.max_reach_cm * direction_factor
@@ -163,7 +147,6 @@ class ReachModel:
         wall_width_m: float = 3.0,
     ) -> ReachabilityResult:
         """Determine if a foot can reach the target hold."""
-        # Convert to cm
         hip_y_cm = (1.0 - hip_pos_normalized[1]) * wall_height_m * 100
         hip_x_cm = hip_pos_normalized[0] * wall_width_m * 100
 
@@ -175,12 +158,9 @@ class ReachModel:
 
         distance_cm = math.sqrt(dx**2 + dy**2)
 
-        # Check if hold is reachable with a foot
         max_foot_reach = self.compute_max_step_height(profile)
 
-        # Foot below hips: easy
         if dy >= 0:
-            # Foot below hips — check lateral reach
             max_lateral = profile.leg_length_cm * 0.7
             if abs(dx) > max_lateral:
                 return ReachabilityResult(
@@ -196,7 +176,6 @@ class ReachModel:
                 margin_cm=max_lateral - abs(dx),
             )
         else:
-            # Foot above hips — requires flexibility
             above_hip_cm = abs(dy)
             if above_hip_cm > max_foot_reach:
                 return ReachabilityResult(

@@ -65,14 +65,12 @@ class BodyState:
         lf_arr = np.array([lf[0], lf[1], 0.02])
         rf_arr = np.array([rf[0], rf[1], 0.02])
 
-        # Estimate hips: midpoint between feet, offset upward by leg fraction
         leg_fraction = (profile.leg_length_cm / (profile.height_cm * 100)) * 0.5
         feet_mid_x = (lf[0] + rf[0]) / 2
         feet_mid_y = (lf[1] + rf[1]) / 2
         hip_y = feet_mid_y - leg_fraction
         hips = np.array([feet_mid_x, hip_y, 0.1])
 
-        # Shoulders: above hips by torso fraction
         torso_fraction = (profile.torso_length_cm / (profile.height_cm * 100)) * 0.5
         shoulders = np.array([
             (lh[0] + rh[0]) / 2,
@@ -80,11 +78,9 @@ class BodyState:
             0.08,
         ])
 
-        # Head: above shoulders
-        head_offset = 0.05  # ~head height fraction
+        head_offset = 0.05
         head = np.array([shoulders[0], shoulders[1] - head_offset, 0.05])
 
-        # CoM: approximately at hip height, weighted towards wall contact
         com = np.array([
             (lh[0] + rh[0] + lf[0] + rf[0]) / 4,
             hips[1] * 0.6 + ((lh[1] + rh[1]) / 2) * 0.4,
@@ -123,7 +119,6 @@ class HumanBodyModel:
         Segment mass fractions: head 0.081, trunk 0.497, upper arm 0.028×2,
         forearm 0.016×2, hand 0.006×2, thigh 0.100×2, shank 0.0465×2, foot 0.0145×2
         """
-        # Simplified model: weighted average of key landmarks
         weights = {
             "hands": 0.044,    # 2 hands
             "shoulders": 0.497, # trunk dominates
@@ -164,18 +159,15 @@ class HumanBodyModel:
             return False, 0.0
 
         if wall_angle_deg <= 0:  # slab
-            # On slab: feet are primary support, COM should be over feet
             feet_center_x = (state.left_foot[0] + state.right_foot[0]) / 2
             com_offset = abs(com[0] - feet_center_x)
             foot_span = abs(state.right_foot[0] - state.left_foot[0]) / 2 + 0.05
             margin = max(0, (foot_span - com_offset) / foot_span)
             return margin > 0.1, round(margin, 3)
         else:
-            # Overhang: balance is about not barn-dooring
-            # COM should be within a reasonable range of the wall contact polygon
             points_x = [p[0] for p in active_points]
             min_x, max_x = min(points_x), max(points_x)
-            width = max_x - min_x + 0.05  # small buffer
+            width = max_x - min_x + 0.05
 
             com_in_range = min_x - 0.03 <= com[0] <= max_x + 0.03
             margin = min(abs(com[0] - min_x), abs(max_x - com[0])) / (width + 0.01)
@@ -191,19 +183,15 @@ class HumanBodyModel:
         left_arm = arm_angle(state.shoulders, state.left_hand)
         right_arm = arm_angle(state.shoulders, state.right_hand)
 
-        # Simplified elbow: if arm is fully extended, elbow is ~10°; bent = ~90°
         def elbow_estimate(shoulder: np.ndarray, hand: np.ndarray, arm_len: float) -> float:
             actual_dist = float(np.linalg.norm(hand - shoulder))
-            ratio = actual_dist / (arm_len / 100.0)  # normalize by arm length
-            # ratio 1.0 = fully extended = 10° flexion
-            # ratio 0.7 = 70% extended = ~70° flexion
+            ratio = actual_dist / (arm_len / 100.0)
             return max(10.0, min(145.0, (1.0 - ratio) * 130.0 + 10.0))
 
         arm_len_norm = self.profile.arm_length_cm / 400.0  # normalize to wall
         lh_elbow = elbow_estimate(state.shoulders, state.left_hand, self.profile.arm_length_cm)
         rh_elbow = elbow_estimate(state.shoulders, state.right_hand, self.profile.arm_length_cm)
 
-        # Hip angle: how much is the hip bent
         hip_to_feet = (state.left_foot + state.right_foot) / 2 - state.hips
         spine_to_feet_angle = math.degrees(math.atan2(abs(hip_to_feet[1]), abs(hip_to_feet[0])))
         hip_flexion = max(0, 90 - spine_to_feet_angle)
@@ -239,20 +227,17 @@ class HumanBodyModel:
         warnings: list[str] = []
         validator = JointConstraintValidator()
 
-        # Check injury restrictions for move type
         if self.profile.has_restriction(move_type.value):
             violations.append(
                 f"Move type '{move_type.value}' is restricted due to injury in profile"
             )
 
-        # Check balance in destination state
         balanced, margin = self.check_balance(to_state, wall_angle_deg)
         if not balanced:
             violations.append("Destination body position is not balanced")
         elif margin < 0.15:
             warnings.append(f"Destination position has low balance margin ({margin:.0%})")
 
-        # Check for dynamic move constraints
         if move_type in (MoveType.FULL_DYNO, MoveType.CONTROLLED_DYNO):
             if self.profile.dynamic_comfort_score < 0.3:
                 violations.append(
@@ -263,7 +248,6 @@ class HumanBodyModel:
                     "High fear of dynamic movement in profile — consider static alternatives"
                 )
 
-        # Check heel/toe hooks
         if move_type == MoveType.HEEL_HOOK:
             feasible, msg = validator.is_heel_hook_possible(
                 self.profile,
@@ -278,7 +262,6 @@ class HumanBodyModel:
             if not feasible:
                 violations.append(msg)
 
-        # Suggest alternatives if violations found
         adjusted_moves: list[MoveType] = []
         if violations:
             if move_type in (MoveType.FULL_DYNO, MoveType.CONTROLLED_DYNO):
