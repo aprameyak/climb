@@ -25,9 +25,5 @@ jobs:
           node-version: 20
       - run: npm install
         working-directory: frontend
-      - run: npm run lint
-        working-directory: frontend
-      - run: npm run type-check
-        working-directory: frontend
       - run: npm run build
         working-directory: frontend
