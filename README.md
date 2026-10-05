@@ -26,3 +26,33 @@
 - **Backend**: Python, FastAPI, Pydantic v2
 - **AI**: Anthropic Claude Vision API
 - **Infrastructure**: Docker Compose
+
+## Quick Start
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+2. Set up environment:
+   ```bash
+   cp .env.example .env.local
+   ```
+
+3. Run locally:
+   ```bash
+   npm run dev
+   ```
+
+4. Open http://localhost:3000
+
+## How It Works
+
+Upload a climbing problem image. The app analyzes the image using Claude Vision AI to identify holds and movements, then provides beta (solution hints).
+
+## Tech Stack
+
+- Next.js 16
+- TypeScript
+- Claude Vision API
+- Tailwind CSS
